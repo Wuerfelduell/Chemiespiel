@@ -144,6 +144,27 @@
   .review-item .a { color: var(--ok); }
   .review-item .y { color: var(--bad); font-size: .9rem; margin-top: 4px; }
 
+  /* Pool */
+  .pool-head .lbl { margin-bottom: 2px; }
+  .pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; margin: 10px 0 8px; }
+  .pool span {
+    height: 30px; border-radius: 7px; display: grid; place-items: center;
+    font-size: .78rem; font-weight: 600; border: 1px solid var(--border);
+  }
+  .lv0 { background: var(--card); color: var(--muted); }
+  .lv1 { background: #fdf0d5; color: #8a5a00; border-color: #f1d49a !important; }
+  .lv2 { background: #e2efd9; color: #3f6b22; border-color: #bcd9a8 !important; }
+  .lv3 { background: var(--ok); color: #fff; border-color: var(--ok) !important; }
+  .lvbad { box-shadow: inset 0 -3px 0 var(--bad); }
+  @media (prefers-color-scheme: dark) {
+    .lv1 { background: #3a2f16; color: #f0c870; border-color: #5a4720 !important; }
+    .lv2 { background: #22331a; color: #a8d68a; border-color: #36502a !important; }
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--border); }
+  .dots { letter-spacing: 2px; color: var(--ok); }
+  .feedback .pool-msg { margin-top: 8px; font-weight: 600; }
+
   .hidden { display: none !important; }
   footer { margin-top: 20px; text-align: center; color: var(--muted); font-size: .8rem; }
 
@@ -169,6 +190,22 @@
     <div class="stats" id="stats"></div>
 
     <div class="field">
+      <div class="pool-head">
+        <label class="lbl">Dein Pool</label>
+        <span class="small muted">Eine Frage ist <b>sicher</b>, wenn du sie 3-mal hintereinander richtig beantwortest. Ein Fehler schiebt sie zurück zu den unsicheren.</span>
+      </div>
+      <div class="pool" id="pool"></div>
+      <div class="legend small muted">
+        <span><i class="lv0"></i>neu/falsch</span><span><i class="lv1"></i>1× richtig</span><span><i class="lv2"></i>2× richtig</span><span><i class="lv3"></i>sicher</span>
+      </div>
+    </div>
+
+    <div class="row field">
+      <button type="button" class="btn-primary" id="weakBtn">Unsichere Fragen üben</button>
+      <span class="small muted" id="weakInfo"></span>
+    </div>
+
+    <div class="field">
       <label class="lbl">Themen</label>
       <div class="row small">
         <button type="button" id="allTopics">Alle</button>
@@ -184,7 +221,8 @@
           <option value="all">Alle ausgewählten</option>
           <option value="10">10 zufällige</option>
           <option value="20">20 zufällige</option>
-          <option value="weak">Nur noch nicht sicher gewusste</option>
+          <option value="weak">Nur unsichere</option>
+          <option value="safe">Nur sichere (Wiederholung)</option>
         </select>
       </div>
       <div>
@@ -211,6 +249,7 @@
       <span id="counter"></span>
       <span class="tag" id="topicTag"></span>
       <span id="nrTag"></span>
+      <span class="dots" id="dots" title="Richtig in Folge (3 = sicher)"></span>
       <span class="score" id="liveScore"></span>
     </div>
     <div class="question" id="question"></div>
@@ -231,6 +270,7 @@
     <p class="muted" id="resultText"></p>
     <div class="row">
       <button type="button" class="btn-primary" id="retryWrongBtn">Falsche wiederholen</button>
+      <button type="button" id="resultWeakBtn">Unsichere Fragen üben</button>
       <button type="button" id="newGameBtn">Neues Spiel</button>
     </div>
     <div class="review" id="review"></div>
@@ -253,14 +293,17 @@
   function saveStats(s) {
     try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { /* ignorieren */ }
   }
-  let stats = loadStats(); // { nr: { r: richtig, f: falsch, last: true/false } }
+  // { nr: { r: richtig gesamt, f: falsch gesamt, last: true/false, streak: richtig in Folge } }
+  let stats = loadStats();
+  // ältere Spielstände ohne "streak" übernehmen
+  Object.values(stats).forEach((s) => { if (typeof s.streak !== "number") s.streak = s.last ? 1 : 0; });
 
-  // Als "sicher" gilt eine Frage, wenn sie zuletzt richtig beantwortet wurde
-  // und öfter richtig als falsch war.
-  const isSafe = (nr) => {
-    const s = stats[nr];
-    return !!s && s.last === true && s.r > s.f;
-  };
+  // Eine Frage ist "sicher", sobald sie SICHER_AB-mal hintereinander richtig beantwortet wurde.
+  // Eine falsche Antwort setzt die Serie auf 0 zurück (→ wieder unsicher).
+  const SICHER_AB = 3;
+  const streakOf = (nr) => (stats[nr] ? stats[nr].streak : 0);
+  const isSafe = (nr) => streakOf(nr) >= SICHER_AB;
+  const dots = (n) => "●".repeat(Math.min(n, SICHER_AB)) + "○".repeat(Math.max(SICHER_AB - n, 0));
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -296,8 +339,20 @@
     let list = FRAGEN.filter((f) => t.includes(f.thema));
     const mode = $("mode").value;
     if (mode === "weak") list = list.filter((f) => !isSafe(f.nr));
+    if (mode === "safe") list = list.filter((f) => isSafe(f.nr));
     return list;
   }
+
+  // Unsichere Fragen: zuerst die mit der kürzesten Serie (neu/falsch), innerhalb gleicher Stufe zufällig
+  function weakList() {
+    return shuffle(FRAGEN.filter((f) => !isSafe(f.nr)))
+      .sort((a, b) => streakOf(a.nr) - streakOf(b.nr));
+  }
+  function startWeak() {
+    const list = weakList();
+    if (list.length) startGame(list);
+  }
+  $("weakBtn").onclick = startWeak;
 
   function updateStartInfo() {
     const mode = $("mode").value;
@@ -309,15 +364,32 @@
   }
 
   function renderStats() {
-    const answered = FRAGEN.filter((f) => stats[f.nr]).length;
     const safe = FRAGEN.filter((f) => isSafe(f.nr)).length;
+    const weak = FRAGEN.length - safe;
     let r = 0, t = 0;
     Object.values(stats).forEach((s) => { r += s.r; t += s.r + s.f; });
     const quote = t ? Math.round((r / t) * 100) + " %" : "–";
     $("stats").innerHTML =
-      `<div class="stat"><b>${answered}/${FRAGEN.length}</b><span>schon gespielt</span></div>` +
-      `<div class="stat"><b>${safe}</b><span>sicher gewusst</span></div>` +
+      `<div class="stat"><b>${safe}/${FRAGEN.length}</b><span>sicher</span></div>` +
+      `<div class="stat"><b>${weak}</b><span>unsicher</span></div>` +
       `<div class="stat"><b>${quote}</b><span>Trefferquote</span></div>`;
+
+    // Übersicht aller Fragen, eingefärbt nach Serie
+    const box = $("pool");
+    box.innerHTML = "";
+    FRAGEN.forEach((f) => {
+      const n = Math.min(streakOf(f.nr), SICHER_AB);
+      const el = document.createElement("span");
+      el.className = "lv" + n + (stats[f.nr] && stats[f.nr].last === false ? " lvbad" : "");
+      el.textContent = f.nr;
+      el.title = `Nr. ${f.nr}: ${n >= SICHER_AB ? "sicher" : n + "× richtig in Folge"} – ${f.frage}`;
+      box.appendChild(el);
+    });
+
+    $("weakBtn").disabled = weak === 0;
+    $("weakInfo").textContent = weak === 0
+      ? "Alle Fragen sind sicher! 🎉"
+      : `${weak} Frage${weak === 1 ? "" : "n"} – bis jede ${SICHER_AB}× in Folge richtig ist`;
   }
 
   $("resetBtn").onclick = () => {
@@ -332,7 +404,7 @@
   let game = null;
 
   function startGame(list) {
-    game = { list, i: 0, right: 0, wrong: [], answered: false, current: null };
+    game = { list, i: 0, right: 0, wrong: [], newSafe: 0, lostSafe: 0, answered: false, current: null };
     show("quiz");
     renderQuestion();
   }
@@ -363,6 +435,7 @@
     $("topicTag").textContent = THEMEN[f.thema];
     $("nrTag").textContent = `Katalog Nr. ${f.nr}`;
     $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
+    $("dots").textContent = dots(streakOf(f.nr));
     $("question").textContent = f.frage;
 
     const box = $("options");
@@ -398,11 +471,19 @@
       else b.classList.add("dim");
     });
 
-    const s = stats[f.nr] || { r: 0, f: 0, last: null };
-    if (ok) { s.r++; game.right++; } else { s.f++; game.wrong.push({ f, chosen: opts[idx].text }); }
+    const s = stats[f.nr] || { r: 0, f: 0, last: null, streak: 0 };
+    const wasSafe = s.streak >= SICHER_AB;
+    if (ok) { s.r++; s.streak++; game.right++; }
+    else { s.f++; s.streak = 0; game.wrong.push({ f, chosen: opts[idx].text }); }
     s.last = ok;
     stats[f.nr] = s;
     saveStats(stats);
+    const nowSafe = s.streak >= SICHER_AB;
+    let poolMsg = "";
+    if (!wasSafe && nowSafe) { game.newSafe++; poolMsg = "⭐ 3× in Folge richtig – die Frage ist jetzt sicher!"; }
+    else if (wasSafe && !nowSafe) { game.lostSafe++; poolMsg = "↩︎ Die Frage war sicher und ist jetzt wieder bei den unsicheren."; }
+    else if (!nowSafe) poolMsg = ok ? `Noch ${SICHER_AB - s.streak}× in Folge richtig bis „sicher“.` : `Serie zurückgesetzt – ${SICHER_AB}× in Folge richtig bis „sicher“.`;
+    $("dots").textContent = dots(s.streak);
 
     const fb = $("feedback");
     fb.className = "feedback " + (ok ? "ok" : "bad");
@@ -413,6 +494,12 @@
     }
     fb.querySelector(".exp").textContent = f.erklaerung;
     fb.querySelector(".src").textContent = `📖 Skriptum ${f.seiten}`;
+    if (poolMsg) {
+      const pm = document.createElement("div");
+      pm.className = "pool-msg";
+      pm.textContent = poolMsg;
+      fb.appendChild(pm);
+    }
 
     $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
     $("nextBtn").disabled = false;
@@ -443,7 +530,12 @@
     else if (pct >= 80) msg += "Sehr gut, fast alles sitzt.";
     else if (pct >= 50) msg += "Solide – wiederhol die falschen Fragen.";
     else msg += "Da geht noch was – die falschen Fragen gleich nochmal üben.";
+    const safeTotal = FRAGEN.filter((f) => isSafe(f.nr)).length;
+    msg += ` Neu sicher: ${game.newSafe}`;
+    if (game.lostSafe) msg += `, wieder unsicher: ${game.lostSafe}`;
+    msg += ` · Pool: ${safeTotal}/${FRAGEN.length} sicher.`;
     $("resultText").textContent = msg;
+    $("resultWeakBtn").classList.toggle("hidden", safeTotal === FRAGEN.length);
 
     const rev = $("review");
     rev.innerHTML = "";
@@ -468,6 +560,7 @@
   }
 
   $("retryWrongBtn").onclick = () => startGame(shuffle(game.wrong.map((w) => w.f)));
+  $("resultWeakBtn").onclick = startWeak;
   $("newGameBtn").onclick = goStart;
 
   function goStart() {
