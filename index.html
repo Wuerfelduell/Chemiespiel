@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chemie-Quiz</title>
-<meta name="description" content="Multiple-Choice-Quiz zum Fragenkatalog CHE1VO/ACA1VO – Antworten aus dem Skriptum.">
+<title>Lern-Quiz</title>
+<meta name="description" content="Multiple-Choice-Quiz für Chemie und Marktorientiertes Management – Antworten aus dem Skriptum.">
 <style>
   :root {
     --bg: #f5f6f8;
@@ -18,6 +18,8 @@
     --ok-soft: #e3f5ea;
     --bad: #c23a3a;
     --bad-soft: #fbe7e7;
+    --warn: #8a5a00;
+    --warn-soft: #fdf0d5;
     --shadow: 0 1px 3px rgba(20, 30, 50, .08), 0 4px 16px rgba(20, 30, 50, .05);
   }
   @media (prefers-color-scheme: dark) {
@@ -33,6 +35,8 @@
       --ok-soft: #173024;
       --bad: #ef7676;
       --bad-soft: #3a1d1f;
+      --warn: #f0c870;
+      --warn-soft: #3a2f16;
       --shadow: 0 1px 3px rgba(0, 0, 0, .4);
     }
   }
@@ -45,9 +49,36 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  header h1 { font-size: 1.35rem; margin: 0; letter-spacing: -.01em; }
-  header .sub { color: var(--muted); font-size: .9rem; }
+
+  /* Kopf mit Fächerauswahl */
+  header { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .fach-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: 1px solid transparent; border-radius: 12px;
+    padding: 6px 10px; margin-left: -10px; color: var(--text); cursor: pointer; text-align: left;
+  }
+  .fach-btn:hover, .fach-btn[aria-expanded="true"] { background: var(--card); border-color: var(--border); }
+  .fach-btn h1 { font-size: 1.35rem; margin: 0; letter-spacing: -.01em; }
+  .fach-btn .caret { font-size: .9rem; color: var(--muted); transition: transform .15s; }
+  .fach-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  header .sub { color: var(--muted); font-size: .9rem; text-align: right; }
+  .fach-menu {
+    position: absolute; top: calc(100% + 4px); left: -10px; z-index: 10;
+    width: min(420px, calc(100vw - 12px));
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(20, 30, 50, .18); padding: 6px;
+  }
+  .fach-item {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    background: none; border: 0; border-radius: 8px; padding: 10px 12px; text-align: left;
+  }
+  .fach-item:hover { background: var(--accent-soft); }
+  .fach-item.on { background: var(--accent-soft); }
+  .fach-item .ic { font-size: 1.4rem; }
+  .fach-item .t { font-weight: 600; }
+  .fach-item .s { color: var(--muted); font-size: .82rem; }
+  .fach-item .check { margin-left: auto; color: var(--accent); font-weight: 700; }
+
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -102,9 +133,11 @@
   .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .25s; }
   .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: .85rem; color: var(--muted); }
   .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+  .tag.src { background: var(--warn-soft); color: var(--warn); }
   .score { margin-left: auto; }
-  .question { font-size: 1.12rem; font-weight: 600; margin: 4px 0 16px; }
-  .options { display: grid; gap: 10px; }
+  .question { font-size: 1.12rem; font-weight: 600; margin: 4px 0 8px; }
+  .multi-hint { font-size: .85rem; color: var(--muted); margin-bottom: 12px; }
+  .options { display: grid; gap: 10px; margin-top: 8px; }
   .opt {
     display: flex; gap: 12px; align-items: flex-start; text-align: left;
     width: 100%; padding: 12px 14px; line-height: 1.45;
@@ -117,11 +150,19 @@
     display: grid; place-items: center; font-weight: 700; font-size: .85rem;
     background: var(--bg); border: 1px solid var(--border);
   }
+  .opt.multi .key { border-radius: 6px; }
+  .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .opt.sel .key { background: var(--accent); border-color: var(--accent); color: #fff; }
   .opt.correct { border-color: var(--ok); background: var(--ok-soft); }
   .opt.correct .key { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .opt.missed { border: 2px dashed var(--ok); background: var(--card); }
+  .opt.missed .key { background: var(--card); border-color: var(--ok); color: var(--ok); }
   .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
   .opt.wrong .key { background: var(--bad); border-color: var(--bad); color: #fff; }
   .opt.dim { opacity: .55; }
+  .opt .note { display: block; font-size: .78rem; font-weight: 700; margin-top: 2px; }
+  .opt.missed .note { color: var(--ok); }
+  .opt.wrong .note { color: var(--bad); }
   .feedback {
     margin-top: 16px; border-radius: 10px; padding: 12px 14px;
     border: 1px solid var(--border); background: var(--bg);
@@ -133,6 +174,7 @@
   .feedback .model:empty { display: none; }
   .feedback .exp { color: var(--muted); font-size: .92rem; }
   .feedback .src { margin-top: 6px; font-size: .85rem; color: var(--muted); }
+  .feedback .pool-msg { margin-top: 8px; font-weight: 600; }
   .actions { margin-top: 16px; }
   .hint { font-size: .8rem; color: var(--muted); }
 
@@ -143,6 +185,7 @@
   .review-item .q { font-weight: 600; margin-bottom: 4px; }
   .review-item .a { color: var(--ok); }
   .review-item .y { color: var(--bad); font-size: .9rem; margin-top: 4px; }
+  .review-item ul { margin: 2px 0; padding-left: 20px; }
 
   /* Pool */
   .pool-head .lbl { margin-bottom: 2px; }
@@ -163,7 +206,6 @@
   .legend { display: flex; flex-wrap: wrap; gap: 12px; }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--border); }
   .dots { letter-spacing: 2px; color: var(--ok); }
-  .feedback .pool-msg { margin-top: 8px; font-weight: 600; }
 
   .hidden { display: none !important; }
   footer { margin-top: 20px; text-align: center; color: var(--muted); font-size: .8rem; }
@@ -172,20 +214,24 @@
     .card { padding: 16px; }
     .question { font-size: 1.04rem; }
     .stats { gap: 6px; }
+    header .sub { display: none; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>⚗️ Chemie-Quiz</h1>
-    <span class="sub">Fragenkatalog CHE1VO/ACA1VO</span>
+    <button type="button" class="fach-btn" id="fachBtn" aria-haspopup="true" aria-expanded="false" title="Fach wechseln">
+      <h1 id="fachTitle"></h1><span class="caret">▾</span>
+    </button>
+    <span class="sub" id="fachSub"></span>
+    <div class="fach-menu hidden" id="fachMenu" role="menu"></div>
   </header>
 
   <!-- Startbildschirm -->
   <section id="start" class="card">
     <h2>Neues Spiel</h2>
-    <p class="muted small">Alle 58 Fragen aus dem Fragenkatalog, jeweils mit 4 Antwortmöglichkeiten. Die richtige Antwort und die Erklärung stammen aus dem Skriptum (mit Seitenangabe).</p>
+    <p class="muted small" id="fachDesc"></p>
 
     <div class="stats" id="stats"></div>
 
@@ -229,7 +275,7 @@
         <label class="lbl" for="order">Reihenfolge</label>
         <select id="order">
           <option value="random">Zufällig</option>
-          <option value="catalog">Wie im Katalog</option>
+          <option value="catalog">Nach Nummer</option>
         </select>
       </div>
     </div>
@@ -248,17 +294,19 @@
     <div class="meta">
       <span id="counter"></span>
       <span class="tag" id="topicTag"></span>
+      <span class="tag src hidden" id="srcTag"></span>
       <span id="nrTag"></span>
       <span class="dots" id="dots" title="Richtig in Folge (3 = sicher)"></span>
       <span class="score" id="liveScore"></span>
     </div>
     <div class="question" id="question"></div>
+    <div class="multi-hint hidden" id="multiHint">Mehrere Antworten möglich – mindestens eine ist richtig. Kreuze alle richtigen an und tippe dann auf „Antwort prüfen“.</div>
     <div class="options" id="options"></div>
     <div id="feedback" class="feedback hidden"></div>
     <div class="row actions">
       <button type="button" id="quitBtn">Beenden</button>
       <span class="spacer"></span>
-      <span class="hint" id="keyHint">Tasten 1–4 zum Antworten</span>
+      <span class="hint" id="keyHint"></span>
       <button type="button" class="btn-primary" id="nextBtn" disabled>Weiter</button>
     </div>
   </section>
@@ -276,34 +324,21 @@
     <div class="review" id="review"></div>
   </section>
 
-  <footer>Antworten basierend auf dem Skriptum ACA1VO/CHE1VO · Fortschritt wird nur lokal in diesem Browser gespeichert.</footer>
+  <footer id="footer"></footer>
 </div>
 
-<script src="fragen.js"></script>
+<script src="fragen-chemie.js"></script>
+<script src="fragen-mom.js"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const KEYS = ["A", "B", "C", "D"];
-  const STORE = "chemiequiz-stats-v1";
+  const KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+  const FACH_STORE = "lernquiz-fach";
+  const SICHER_AB = 3; // so oft hintereinander richtig → "sicher"
 
   // ---- Speicher (lokal, optional) ----
-  function loadStats() {
-    try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; }
-  }
-  function saveStats(s) {
-    try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { /* ignorieren */ }
-  }
-  // { nr: { r: richtig gesamt, f: falsch gesamt, last: true/false, streak: richtig in Folge } }
-  let stats = loadStats();
-  // ältere Spielstände ohne "streak" übernehmen
-  Object.values(stats).forEach((s) => { if (typeof s.streak !== "number") s.streak = s.last ? 1 : 0; });
-
-  // Eine Frage ist "sicher", sobald sie SICHER_AB-mal hintereinander richtig beantwortet wurde.
-  // Eine falsche Antwort setzt die Serie auf 0 zurück (→ wieder unsicher).
-  const SICHER_AB = 3;
-  const streakOf = (nr) => (stats[nr] ? stats[nr].streak : 0);
-  const isSafe = (nr) => streakOf(nr) >= SICHER_AB;
-  const dots = (n) => "●".repeat(Math.min(n, SICHER_AB)) + "○".repeat(Math.max(SICHER_AB - n, 0));
+  const load = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; } };
+  const save = (key, v) => { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ignorieren */ } };
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -314,17 +349,87 @@
     return a;
   }
 
+  // Antwortmöglichkeiten einer Frage vereinheitlichen:
+  // Einzelauswahl (richtig + falsch[]) oder Mehrfachauswahl (antworten[{t, r}])
+  const optionsOf = (f) => f.antworten
+    ? f.antworten.map((a) => ({ text: a.t, ok: !!a.r }))
+    : [{ text: f.richtig, ok: true }, ...f.falsch.map((t) => ({ text: t, ok: false }))];
+  const correctTexts = (f) => optionsOf(f).filter((o) => o.ok).map((o) => o.text);
+
+  // ---- Fach & Statistik ----
+  let fach = null;
+  let stats = {}; // { nr: { r, f, last, streak } }
+  const streakOf = (nr) => (stats[nr] ? stats[nr].streak : 0);
+  const isSafe = (nr) => streakOf(nr) >= SICHER_AB;
+  const dots = (n) => "●".repeat(Math.min(n, SICHER_AB)) + "○".repeat(Math.max(SICHER_AB - n, 0));
+
+  function loadStats(f) {
+    const s = load(f.store, {});
+    // ältere Spielstände ohne "streak" übernehmen
+    Object.values(s).forEach((e) => { if (typeof e.streak !== "number") e.streak = e.last ? 1 : 0; });
+    return s;
+  }
+  const safeCount = (f, s) => f.fragen.filter((q) => s[q.nr] && s[q.nr].streak >= SICHER_AB).length;
+
+  function setFach(id) {
+    fach = FAECHER.find((f) => f.id === id) || FAECHER[0];
+    save(FACH_STORE, fach.id);
+    stats = loadStats(fach);
+    document.title = `${fach.kurz}-Quiz`;
+    $("fachTitle").textContent = `${fach.icon} ${fach.kurz}-Quiz`;
+    $("fachSub").textContent = fach.untertitel;
+    $("fachDesc").textContent = fach.beschreibung;
+    $("footer").textContent = `Antworten basierend auf dem ${fach.quelleText} · Fortschritt wird nur lokal in diesem Browser gespeichert.`;
+    buildTopics();
+    goStart();
+  }
+
+  // ---- Fächer-Menü in der Überschrift ----
+  const menu = $("fachMenu");
+  function renderMenu() {
+    menu.innerHTML = "";
+    FAECHER.forEach((f) => {
+      const s = f.id === fach.id ? stats : loadStats(f);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "fach-item" + (f.id === fach.id ? " on" : "");
+      b.setAttribute("role", "menuitem");
+      b.innerHTML = `<span class="ic"></span><span><span class="t"></span><br><span class="s"></span></span><span class="check">${f.id === fach.id ? "✓" : ""}</span>`;
+      b.querySelector(".ic").textContent = f.icon;
+      b.querySelector(".t").textContent = f.name;
+      b.querySelector(".s").textContent = `${f.fragen.length} Fragen · ${safeCount(f, s)} sicher`;
+      b.onclick = () => {
+        closeMenu();
+        if (f.id === fach.id) return;
+        if (game && !$("quiz").classList.contains("hidden") && game.i > 0 &&
+            !confirm("Laufendes Spiel beenden und Fach wechseln?")) return;
+        setFach(f.id);
+      };
+      menu.appendChild(b);
+    });
+  }
+  function openMenu() { renderMenu(); menu.classList.remove("hidden"); $("fachBtn").setAttribute("aria-expanded", "true"); }
+  function closeMenu() { menu.classList.add("hidden"); $("fachBtn").setAttribute("aria-expanded", "false"); }
+  $("fachBtn").onclick = (e) => { e.stopPropagation(); menu.classList.contains("hidden") ? openMenu() : closeMenu(); };
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target)) closeMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+
   // ---- Startbildschirm ----
   const topicBox = $("topics");
-  Object.entries(THEMEN).forEach(([key, name]) => {
-    const n = FRAGEN.filter((f) => f.thema === key).length;
-    const lab = document.createElement("label");
-    lab.className = "chip on";
-    lab.innerHTML = `<input type="checkbox" value="${key}" checked> ${name} <span class="n">${n}</span>`;
-    const cb = lab.querySelector("input");
-    cb.addEventListener("change", () => { lab.classList.toggle("on", cb.checked); updateStartInfo(); });
-    topicBox.appendChild(lab);
-  });
+  function buildTopics() {
+    topicBox.innerHTML = "";
+    Object.entries(fach.themen).forEach(([key, name]) => {
+      const n = fach.fragen.filter((f) => f.thema === key).length;
+      if (!n) return;
+      const lab = document.createElement("label");
+      lab.className = "chip on";
+      lab.innerHTML = `<input type="checkbox" value="${key}" checked> <span></span> <span class="n">${n}</span>`;
+      lab.children[1].textContent = name;
+      const cb = lab.querySelector("input");
+      cb.addEventListener("change", () => { lab.classList.toggle("on", cb.checked); updateStartInfo(); });
+      topicBox.appendChild(lab);
+    });
+  }
   const selectedTopics = () => [...topicBox.querySelectorAll("input:checked")].map((c) => c.value);
   function setAllTopics(on) {
     topicBox.querySelectorAll("input").forEach((c) => { c.checked = on; c.parentElement.classList.toggle("on", on); });
@@ -336,7 +441,7 @@
 
   function pool() {
     const t = selectedTopics();
-    let list = FRAGEN.filter((f) => t.includes(f.thema));
+    let list = fach.fragen.filter((f) => t.includes(f.thema));
     const mode = $("mode").value;
     if (mode === "weak") list = list.filter((f) => !isSafe(f.nr));
     if (mode === "safe") list = list.filter((f) => isSafe(f.nr));
@@ -345,7 +450,7 @@
 
   // Unsichere Fragen: zuerst die mit der kürzesten Serie (neu/falsch), innerhalb gleicher Stufe zufällig
   function weakList() {
-    return shuffle(FRAGEN.filter((f) => !isSafe(f.nr)))
+    return shuffle(fach.fragen.filter((f) => !isSafe(f.nr)))
       .sort((a, b) => streakOf(a.nr) - streakOf(b.nr));
   }
   function startWeak() {
@@ -356,28 +461,28 @@
 
   function updateStartInfo() {
     const mode = $("mode").value;
-    const p = pool();
-    let n = p.length;
+    let n = pool().length;
     if (mode === "10" || mode === "20") n = Math.min(n, +mode);
     $("startInfo").textContent = n === 0 ? "Keine Fragen ausgewählt" : `${n} Frage${n === 1 ? "" : "n"}`;
     $("startBtn").disabled = n === 0;
   }
 
   function renderStats() {
-    const safe = FRAGEN.filter((f) => isSafe(f.nr)).length;
-    const weak = FRAGEN.length - safe;
+    const total = fach.fragen.length;
+    const safe = safeCount(fach, stats);
+    const weak = total - safe;
     let r = 0, t = 0;
     Object.values(stats).forEach((s) => { r += s.r; t += s.r + s.f; });
     const quote = t ? Math.round((r / t) * 100) + " %" : "–";
     $("stats").innerHTML =
-      `<div class="stat"><b>${safe}/${FRAGEN.length}</b><span>sicher</span></div>` +
+      `<div class="stat"><b>${safe}/${total}</b><span>sicher</span></div>` +
       `<div class="stat"><b>${weak}</b><span>unsicher</span></div>` +
       `<div class="stat"><b>${quote}</b><span>Trefferquote</span></div>`;
 
     // Übersicht aller Fragen, eingefärbt nach Serie
     const box = $("pool");
     box.innerHTML = "";
-    FRAGEN.forEach((f) => {
+    fach.fragen.forEach((f) => {
       const n = Math.min(streakOf(f.nr), SICHER_AB);
       const el = document.createElement("span");
       el.className = "lv" + n + (stats[f.nr] && stats[f.nr].last === false ? " lvbad" : "");
@@ -393,9 +498,9 @@
   }
 
   $("resetBtn").onclick = () => {
-    if (!confirm("Gesamte Statistik in diesem Browser löschen?")) return;
+    if (!confirm(`Statistik für ${fach.name} in diesem Browser löschen?`)) return;
     stats = {};
-    saveStats(stats);
+    save(fach.store, stats);
     renderStats();
     updateStartInfo();
   };
@@ -410,74 +515,109 @@
   }
 
   $("startBtn").onclick = () => {
-    let list = pool();
     const mode = $("mode").value;
-    list = $("order").value === "random" ? shuffle(list) : list.slice().sort((a, b) => a.nr - b.nr);
-    if (mode === "10" || mode === "20") {
-      // bei "zufällig" immer zufällig auswählen, danach ggf. sortieren
-      list = shuffle(pool()).slice(0, +mode);
-      if ($("order").value === "catalog") list.sort((a, b) => a.nr - b.nr);
-    }
+    const sortNr = (l) => l.sort((a, b) => a.nr - b.nr);
+    let list = shuffle(pool());
+    if (mode === "10" || mode === "20") list = list.slice(0, +mode);
+    if ($("order").value === "catalog") sortNr(list);
     if (list.length) startGame(list);
   };
 
+  const isMulti = () => !!fach.mehrfach;
+
   function renderQuestion() {
     const f = game.list[game.i];
-    const opts = shuffle([
-      { text: f.richtig, ok: true },
-      ...f.falsch.map((t) => ({ text: t, ok: false })),
-    ]);
-    game.current = { f, opts };
+    const opts = shuffle(optionsOf(f));
+    game.current = { f, opts, sel: new Set() };
     game.answered = false;
 
     $("bar").style.width = (game.i / game.list.length) * 100 + "%";
     $("counter").textContent = `Frage ${game.i + 1} von ${game.list.length}`;
-    $("topicTag").textContent = THEMEN[f.thema];
-    $("nrTag").textContent = `Katalog Nr. ${f.nr}`;
+    $("topicTag").textContent = fach.themen[f.thema];
+    $("srcTag").classList.toggle("hidden", !f.quelle);
+    $("srcTag").textContent = f.quelle ? (f.quelle.startsWith("Skriptum") ? "📖 " : "📝 ") + f.quelle : "";
+    $("nrTag").textContent = `${fach.nrLabel} ${f.nr}`;
     $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
     $("dots").textContent = dots(streakOf(f.nr));
     $("question").textContent = f.frage;
+    $("multiHint").classList.toggle("hidden", !isMulti());
 
     const box = $("options");
     box.innerHTML = "";
     opts.forEach((o, idx) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "opt";
-      b.innerHTML = `<span class="key">${KEYS[idx]}</span><span></span>`;
-      b.lastChild.textContent = o.text;
-      b.onclick = () => answer(idx);
+      b.className = "opt" + (isMulti() ? " multi" : "");
+      if (isMulti()) b.setAttribute("aria-pressed", "false");
+      b.innerHTML = `<span class="key">${KEYS[idx]}</span><span class="txt"></span>`;
+      b.querySelector(".txt").textContent = o.text;
+      b.onclick = () => pick(idx);
       box.appendChild(b);
     });
 
     $("feedback").className = "feedback hidden";
-    $("nextBtn").disabled = true;
-    $("nextBtn").textContent = game.i === game.list.length - 1 ? "Auswerten" : "Weiter";
-    $("keyHint").textContent = "Tasten 1–4 zum Antworten";
+    updateNextBtn();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function answer(idx) {
+  function updateNextBtn() {
+    const btn = $("nextBtn");
+    const last = game.i === game.list.length - 1;
+    const n = game.current.opts.length;
+    if (game.answered) {
+      btn.disabled = false;
+      btn.textContent = last ? "Auswerten" : "Weiter";
+      $("keyHint").textContent = "Enter = weiter";
+    } else if (isMulti()) {
+      btn.disabled = game.current.sel.size === 0;
+      btn.textContent = "Antwort prüfen";
+      $("keyHint").textContent = `Tasten 1–${n} ankreuzen, Enter prüfen`;
+    } else {
+      btn.disabled = true;
+      btn.textContent = last ? "Auswerten" : "Weiter";
+      $("keyHint").textContent = `Tasten 1–${n} zum Antworten`;
+    }
+  }
+
+  function pick(idx) {
+    if (game.answered || idx >= game.current.opts.length) return;
+    if (!isMulti()) { evaluate(new Set([idx])); return; }
+    const sel = game.current.sel;
+    sel.has(idx) ? sel.delete(idx) : sel.add(idx);
+    const b = $("options").children[idx];
+    b.classList.toggle("sel", sel.has(idx));
+    b.setAttribute("aria-pressed", sel.has(idx) ? "true" : "false");
+    updateNextBtn();
+  }
+
+  function evaluate(sel) {
     if (game.answered) return;
     game.answered = true;
     const { f, opts } = game.current;
-    const ok = opts[idx].ok;
+    const ok = opts.every((o, i) => o.ok === sel.has(i));
 
-    const buttons = [...$("options").children];
-    buttons.forEach((b, i) => {
+    [...$("options").children].forEach((b, i) => {
       b.disabled = true;
-      if (opts[i].ok) b.classList.add("correct");
-      else if (i === idx) b.classList.add("wrong");
-      else b.classList.add("dim");
+      b.classList.remove("sel");
+      const chosen = sel.has(i);
+      if (opts[i].ok && chosen) b.classList.add("correct");
+      else if (opts[i].ok) {
+        // richtig, aber nicht angekreuzt
+        b.classList.add(isMulti() ? "missed" : "correct");
+        if (isMulti()) b.querySelector(".txt").insertAdjacentHTML("beforeend", '<span class="note">fehlte – wäre auch richtig gewesen</span>');
+      } else if (chosen) {
+        b.classList.add("wrong");
+        if (isMulti()) b.querySelector(".txt").insertAdjacentHTML("beforeend", '<span class="note">falsch angekreuzt</span>');
+      } else b.classList.add("dim");
     });
 
     const s = stats[f.nr] || { r: 0, f: 0, last: null, streak: 0 };
     const wasSafe = s.streak >= SICHER_AB;
     if (ok) { s.r++; s.streak++; game.right++; }
-    else { s.f++; s.streak = 0; game.wrong.push({ f, chosen: opts[idx].text }); }
+    else { s.f++; s.streak = 0; game.wrong.push({ f, chosen: [...sel].map((i) => opts[i].text) }); }
     s.last = ok;
     stats[f.nr] = s;
-    saveStats(stats);
+    save(fach.store, stats);
     const nowSafe = s.streak >= SICHER_AB;
     let poolMsg = "";
     if (!wasSafe && nowSafe) { game.newSafe++; poolMsg = "⭐ 3× in Folge richtig – die Frage ist jetzt sicher!"; }
@@ -485,15 +625,17 @@
     else if (!nowSafe) poolMsg = ok ? `Noch ${SICHER_AB - s.streak}× in Folge richtig bis „sicher“.` : `Serie zurückgesetzt – ${SICHER_AB}× in Folge richtig bis „sicher“.`;
     $("dots").textContent = dots(s.streak);
 
+    const nRight = opts.filter((o) => o.ok).length;
     const fb = $("feedback");
     fb.className = "feedback " + (ok ? "ok" : "bad");
-    fb.innerHTML = `<div class="verdict">${ok ? "Richtig!" : "Leider falsch."}</div><div class="model"></div><div class="exp"></div><div class="src"></div>`;
+    fb.innerHTML = `<div class="verdict"></div><div class="model"></div><div class="exp"></div><div class="src"></div>`;
+    fb.querySelector(".verdict").textContent = ok ? "Richtig!" : (isMulti() ? `Leider nicht ganz – ${nRight} von ${opts.length} Antworten sind richtig.` : "Leider falsch.");
     if (f.musterantwort) {
       fb.querySelector(".model").innerHTML = "<b>Musterantwort:</b> ";
       fb.querySelector(".model").append(f.musterantwort);
     }
-    fb.querySelector(".exp").textContent = f.erklaerung;
-    fb.querySelector(".src").textContent = `📖 Skriptum ${f.seiten}`;
+    fb.querySelector(".exp").textContent = f.erklaerung || "";
+    fb.querySelector(".src").textContent = `📖 ${fach.id === "chemie" ? "Skriptum " : ""}${f.seiten}`;
     if (poolMsg) {
       const pm = document.createElement("div");
       pm.className = "pool-msg";
@@ -502,13 +644,16 @@
     }
 
     $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
-    $("nextBtn").disabled = false;
+    updateNextBtn();
     $("nextBtn").focus({ preventScroll: true });
-    $("keyHint").textContent = "Enter = weiter";
   }
 
   function next() {
-    if (!game || !game.answered) return;
+    if (!game) return;
+    if (!game.answered) {
+      if (isMulti() && game.current.sel.size) evaluate(game.current.sel);
+      return;
+    }
     game.i++;
     if (game.i >= game.list.length) finish();
     else renderQuestion();
@@ -530,12 +675,12 @@
     else if (pct >= 80) msg += "Sehr gut, fast alles sitzt.";
     else if (pct >= 50) msg += "Solide – wiederhol die falschen Fragen.";
     else msg += "Da geht noch was – die falschen Fragen gleich nochmal üben.";
-    const safeTotal = FRAGEN.filter((f) => isSafe(f.nr)).length;
+    const safeTotal = safeCount(fach, stats);
     msg += ` Neu sicher: ${game.newSafe}`;
     if (game.lostSafe) msg += `, wieder unsicher: ${game.lostSafe}`;
-    msg += ` · Pool: ${safeTotal}/${FRAGEN.length} sicher.`;
+    msg += ` · Pool: ${safeTotal}/${fach.fragen.length} sicher.`;
     $("resultText").textContent = msg;
-    $("resultWeakBtn").classList.toggle("hidden", safeTotal === FRAGEN.length);
+    $("resultWeakBtn").classList.toggle("hidden", safeTotal === fach.fragen.length);
 
     const rev = $("review");
     rev.innerHTML = "";
@@ -549,9 +694,16 @@
         d.className = "review-item";
         d.innerHTML = `<div class="q"></div><div class="a"></div><div class="y"></div><div class="small muted"></div>`;
         d.querySelector(".q").textContent = `Nr. ${f.nr}: ${f.frage}`;
-        d.querySelector(".a").textContent = "✔ " + f.richtig;
-        d.querySelector(".y").textContent = "✘ Deine Antwort: " + chosen;
-        d.querySelector(".small").textContent = `📖 Skriptum ${f.seiten}`;
+        const right = correctTexts(f);
+        if (right.length === 1) d.querySelector(".a").textContent = "✔ " + right[0];
+        else {
+          d.querySelector(".a").textContent = "✔ Richtig sind:";
+          const ul = document.createElement("ul");
+          right.forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+          d.querySelector(".a").appendChild(ul);
+        }
+        d.querySelector(".y").textContent = "✘ Deine Antwort: " + chosen.join(" · ");
+        d.querySelector(".small").textContent = `📖 ${f.seiten}`;
         rev.appendChild(d);
       });
     }
@@ -580,15 +732,17 @@
     if (!game || $("quiz").classList.contains("hidden")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Enter/Leertaste auf einem fokussierten Button löst dessen Klick ohnehin aus
-    if (e.target.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
+    // (außer bei Antwort-Buttons: dort heißt Enter „prüfen/weiter“, Leertaste „ankreuzen“)
+    const isOpt = e.target.classList && e.target.classList.contains("opt");
+    if (e.target.tagName === "BUTTON" && !isOpt && (e.key === "Enter" || e.key === " ")) return;
+    if (isOpt && e.key === " ") return;
     const k = e.key.toLowerCase();
-    const map = { "1": 0, "2": 1, "3": 2, "4": 3, a: 0, b: 1, c: 2, d: 3 };
-    if (!game.answered && k in map) { e.preventDefault(); answer(map[k]); }
-    else if (game.answered && (e.key === "Enter" || e.key === " " || e.key === "ArrowRight")) { e.preventDefault(); next(); }
+    const idx = /^[1-8]$/.test(k) ? +k - 1 : "abcdefgh".indexOf(k);
+    if (!game.answered && k.length === 1 && idx >= 0) { e.preventDefault(); pick(idx); }
+    else if (e.key === "Enter" || e.key === "ArrowRight" || (game.answered && e.key === " ")) { e.preventDefault(); next(); }
   });
 
-  renderStats();
-  updateStartInfo();
+  setFach(load(FACH_STORE, "chemie"));
 })();
 </script>
 </body>

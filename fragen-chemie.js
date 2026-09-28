@@ -5,6 +5,8 @@
 //   erklaerung     – Zusatzinfo; seiten – Folien-/Seitennummern im Skriptum
 // Beim Spielen werden die Antwortmöglichkeiten zufällig gemischt.
 
+window.FAECHER = window.FAECHER || [];
+{
 const THEMEN = {
   einf: "Einführung & Stoffe",
   atom: "Atombau",
@@ -770,3 +772,19 @@ const FRAGEN = [
     seiten: "S. 457, 466–467, 484",
   },
 ];
+
+FAECHER.push({
+  id: "chemie",
+  name: "Chemie",
+  kurz: "Chemie",
+  icon: "⚗️",
+  untertitel: "Fragenkatalog CHE1VO/ACA1VO",
+  beschreibung: "Alle 58 Fragen aus dem Fragenkatalog, jeweils mit 4 Antwortmöglichkeiten. Die richtige Antwort und die Erklärung stammen aus dem Skriptum (mit Seitenangabe).",
+  quelleText: "Skriptum ACA1VO/CHE1VO",
+  nrLabel: "Katalog Nr.",
+  mehrfach: false,
+  store: "chemiequiz-stats-v1",
+  themen: THEMEN,
+  fragen: FRAGEN,
+});
+}
