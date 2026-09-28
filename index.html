@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chemie-Quiz</title>
+<meta name="description" content="Multiple-Choice-Quiz zum Fragenkatalog CHE1VO/ACA1VO – Antworten aus dem Skriptum.">
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1d2330;
+    --muted: #5f6878;
+    --border: #d9dde5;
+    --accent: #2f6fdb;
+    --accent-soft: #e6eefc;
+    --ok: #1e8a4c;
+    --ok-soft: #e3f5ea;
+    --bad: #c23a3a;
+    --bad-soft: #fbe7e7;
+    --shadow: 0 1px 3px rgba(20, 30, 50, .08), 0 4px 16px rgba(20, 30, 50, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b;
+      --card: #1b2029;
+      --text: #e6e9ef;
+      --muted: #9aa3b2;
+      --border: #2e3542;
+      --accent: #6c9cf0;
+      --accent-soft: #1f2b42;
+      --ok: #4cc281;
+      --ok-soft: #173024;
+      --bad: #ef7676;
+      --bad-soft: #3a1d1f;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  header h1 { font-size: 1.35rem; margin: 0; letter-spacing: -.01em; }
+  header .sub { color: var(--muted); font-size: .9rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: .88rem; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    padding: 10px 16px;
+  }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .spacer { flex: 1; }
+
+  /* Start */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 12px; font-size: .9rem; cursor: pointer; user-select: none;
+    background: var(--card);
+  }
+  .chip input { accent-color: var(--accent); margin: 0; }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); }
+  .chip .n { color: var(--muted); font-size: .8rem; }
+  .field { margin-bottom: 16px; }
+  .field label.lbl { display: block; font-weight: 600; margin-bottom: 6px; }
+  select {
+    font: inherit; padding: 8px 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+  }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 16px; }
+  .stat { border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-size: 1.3rem; }
+  .stat span { color: var(--muted); font-size: .8rem; }
+
+  /* Quiz */
+  .progress { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: .85rem; color: var(--muted); }
+  .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+  .score { margin-left: auto; }
+  .question { font-size: 1.12rem; font-weight: 600; margin: 4px 0 16px; }
+  .options { display: grid; gap: 10px; }
+  .opt {
+    display: flex; gap: 12px; align-items: flex-start; text-align: left;
+    width: 100%; padding: 12px 14px; line-height: 1.45;
+    transition: border-color .15s, background .15s;
+  }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt .key {
+    flex: none; width: 26px; height: 26px; border-radius: 7px;
+    display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+    background: var(--bg); border: 1px solid var(--border);
+  }
+  .opt.correct { border-color: var(--ok); background: var(--ok-soft); }
+  .opt.correct .key { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+  .opt.wrong .key { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .opt.dim { opacity: .55; }
+  .feedback {
+    margin-top: 16px; border-radius: 10px; padding: 12px 14px;
+    border: 1px solid var(--border); background: var(--bg);
+  }
+  .feedback .verdict { font-weight: 700; margin-bottom: 4px; }
+  .feedback.ok .verdict { color: var(--ok); }
+  .feedback.bad .verdict { color: var(--bad); }
+  .feedback .model { margin-bottom: 8px; }
+  .feedback .model:empty { display: none; }
+  .feedback .exp { color: var(--muted); font-size: .92rem; }
+  .feedback .src { margin-top: 6px; font-size: .85rem; color: var(--muted); }
+  .actions { margin-top: 16px; }
+  .hint { font-size: .8rem; color: var(--muted); }
+
+  /* Ergebnis */
+  .big { font-size: 2.4rem; font-weight: 800; margin: 4px 0; }
+  .review { margin-top: 16px; display: grid; gap: 10px; }
+  .review-item { border: 1px solid var(--border); border-left: 4px solid var(--bad); border-radius: 10px; padding: 10px 12px; }
+  .review-item .q { font-weight: 600; margin-bottom: 4px; }
+  .review-item .a { color: var(--ok); }
+  .review-item .y { color: var(--bad); font-size: .9rem; margin-top: 4px; }
+
+  .hidden { display: none !important; }
+  footer { margin-top: 20px; text-align: center; color: var(--muted); font-size: .8rem; }
+
+  @media (max-width: 520px) {
+    .card { padding: 16px; }
+    .question { font-size: 1.04rem; }
+    .stats { gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>⚗️ Chemie-Quiz</h1>
+    <span class="sub">Fragenkatalog CHE1VO/ACA1VO</span>
+  </header>
+
+  <!-- Startbildschirm -->
+  <section id="start" class="card">
+    <h2>Neues Spiel</h2>
+    <p class="muted small">Alle 58 Fragen aus dem Fragenkatalog, jeweils mit 4 Antwortmöglichkeiten. Die richtige Antwort und die Erklärung stammen aus dem Skriptum (mit Seitenangabe).</p>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="field">
+      <label class="lbl">Themen</label>
+      <div class="row small">
+        <button type="button" id="allTopics">Alle</button>
+        <button type="button" id="noTopics">Keine</button>
+      </div>
+      <div class="chips" id="topics"></div>
+    </div>
+
+    <div class="field row">
+      <div>
+        <label class="lbl" for="mode">Fragen</label>
+        <select id="mode">
+          <option value="all">Alle ausgewählten</option>
+          <option value="10">10 zufällige</option>
+          <option value="20">20 zufällige</option>
+          <option value="weak">Nur noch nicht sicher gewusste</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl" for="order">Reihenfolge</label>
+        <select id="order">
+          <option value="random">Zufällig</option>
+          <option value="catalog">Wie im Katalog</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <button type="button" class="btn-primary" id="startBtn">Los geht's</button>
+      <span class="small muted" id="startInfo"></span>
+      <span class="spacer"></span>
+      <button type="button" class="small" id="resetBtn">Statistik zurücksetzen</button>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section id="quiz" class="card hidden">
+    <div class="progress"><div id="bar"></div></div>
+    <div class="meta">
+      <span id="counter"></span>
+      <span class="tag" id="topicTag"></span>
+      <span id="nrTag"></span>
+      <span class="score" id="liveScore"></span>
+    </div>
+    <div class="question" id="question"></div>
+    <div class="options" id="options"></div>
+    <div id="feedback" class="feedback hidden"></div>
+    <div class="row actions">
+      <button type="button" id="quitBtn">Beenden</button>
+      <span class="spacer"></span>
+      <span class="hint" id="keyHint">Tasten 1–4 zum Antworten</span>
+      <button type="button" class="btn-primary" id="nextBtn" disabled>Weiter</button>
+    </div>
+  </section>
+
+  <!-- Ergebnis -->
+  <section id="result" class="card hidden">
+    <h2>Ergebnis</h2>
+    <div class="big" id="resultScore"></div>
+    <p class="muted" id="resultText"></p>
+    <div class="row">
+      <button type="button" class="btn-primary" id="retryWrongBtn">Falsche wiederholen</button>
+      <button type="button" id="newGameBtn">Neues Spiel</button>
+    </div>
+    <div class="review" id="review"></div>
+  </section>
+
+  <footer>Antworten basierend auf dem Skriptum ACA1VO/CHE1VO · Fortschritt wird nur lokal in diesem Browser gespeichert.</footer>
+</div>
+
+<script src="fragen.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const KEYS = ["A", "B", "C", "D"];
+  const STORE = "chemiequiz-stats-v1";
+
+  // ---- Speicher (lokal, optional) ----
+  function loadStats() {
+    try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; }
+  }
+  function saveStats(s) {
+    try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { /* ignorieren */ }
+  }
+  let stats = loadStats(); // { nr: { r: richtig, f: falsch, last: true/false } }
+
+  // Als "sicher" gilt eine Frage, wenn sie zuletzt richtig beantwortet wurde
+  // und öfter richtig als falsch war.
+  const isSafe = (nr) => {
+    const s = stats[nr];
+    return !!s && s.last === true && s.r > s.f;
+  };
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ---- Startbildschirm ----
+  const topicBox = $("topics");
+  Object.entries(THEMEN).forEach(([key, name]) => {
+    const n = FRAGEN.filter((f) => f.thema === key).length;
+    const lab = document.createElement("label");
+    lab.className = "chip on";
+    lab.innerHTML = `<input type="checkbox" value="${key}" checked> ${name} <span class="n">${n}</span>`;
+    const cb = lab.querySelector("input");
+    cb.addEventListener("change", () => { lab.classList.toggle("on", cb.checked); updateStartInfo(); });
+    topicBox.appendChild(lab);
+  });
+  const selectedTopics = () => [...topicBox.querySelectorAll("input:checked")].map((c) => c.value);
+  function setAllTopics(on) {
+    topicBox.querySelectorAll("input").forEach((c) => { c.checked = on; c.parentElement.classList.toggle("on", on); });
+    updateStartInfo();
+  }
+  $("allTopics").onclick = () => setAllTopics(true);
+  $("noTopics").onclick = () => setAllTopics(false);
+  $("mode").onchange = updateStartInfo;
+
+  function pool() {
+    const t = selectedTopics();
+    let list = FRAGEN.filter((f) => t.includes(f.thema));
+    const mode = $("mode").value;
+    if (mode === "weak") list = list.filter((f) => !isSafe(f.nr));
+    return list;
+  }
+
+  function updateStartInfo() {
+    const mode = $("mode").value;
+    const p = pool();
+    let n = p.length;
+    if (mode === "10" || mode === "20") n = Math.min(n, +mode);
+    $("startInfo").textContent = n === 0 ? "Keine Fragen ausgewählt" : `${n} Frage${n === 1 ? "" : "n"}`;
+    $("startBtn").disabled = n === 0;
+  }
+
+  function renderStats() {
+    const answered = FRAGEN.filter((f) => stats[f.nr]).length;
+    const safe = FRAGEN.filter((f) => isSafe(f.nr)).length;
+    let r = 0, t = 0;
+    Object.values(stats).forEach((s) => { r += s.r; t += s.r + s.f; });
+    const quote = t ? Math.round((r / t) * 100) + " %" : "–";
+    $("stats").innerHTML =
+      `<div class="stat"><b>${answered}/${FRAGEN.length}</b><span>schon gespielt</span></div>` +
+      `<div class="stat"><b>${safe}</b><span>sicher gewusst</span></div>` +
+      `<div class="stat"><b>${quote}</b><span>Trefferquote</span></div>`;
+  }
+
+  $("resetBtn").onclick = () => {
+    if (!confirm("Gesamte Statistik in diesem Browser löschen?")) return;
+    stats = {};
+    saveStats(stats);
+    renderStats();
+    updateStartInfo();
+  };
+
+  // ---- Spiel ----
+  let game = null;
+
+  function startGame(list) {
+    game = { list, i: 0, right: 0, wrong: [], answered: false, current: null };
+    show("quiz");
+    renderQuestion();
+  }
+
+  $("startBtn").onclick = () => {
+    let list = pool();
+    const mode = $("mode").value;
+    list = $("order").value === "random" ? shuffle(list) : list.slice().sort((a, b) => a.nr - b.nr);
+    if (mode === "10" || mode === "20") {
+      // bei "zufällig" immer zufällig auswählen, danach ggf. sortieren
+      list = shuffle(pool()).slice(0, +mode);
+      if ($("order").value === "catalog") list.sort((a, b) => a.nr - b.nr);
+    }
+    if (list.length) startGame(list);
+  };
+
+  function renderQuestion() {
+    const f = game.list[game.i];
+    const opts = shuffle([
+      { text: f.richtig, ok: true },
+      ...f.falsch.map((t) => ({ text: t, ok: false })),
+    ]);
+    game.current = { f, opts };
+    game.answered = false;
+
+    $("bar").style.width = (game.i / game.list.length) * 100 + "%";
+    $("counter").textContent = `Frage ${game.i + 1} von ${game.list.length}`;
+    $("topicTag").textContent = THEMEN[f.thema];
+    $("nrTag").textContent = `Katalog Nr. ${f.nr}`;
+    $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
+    $("question").textContent = f.frage;
+
+    const box = $("options");
+    box.innerHTML = "";
+    opts.forEach((o, idx) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt";
+      b.innerHTML = `<span class="key">${KEYS[idx]}</span><span></span>`;
+      b.lastChild.textContent = o.text;
+      b.onclick = () => answer(idx);
+      box.appendChild(b);
+    });
+
+    $("feedback").className = "feedback hidden";
+    $("nextBtn").disabled = true;
+    $("nextBtn").textContent = game.i === game.list.length - 1 ? "Auswerten" : "Weiter";
+    $("keyHint").textContent = "Tasten 1–4 zum Antworten";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function answer(idx) {
+    if (game.answered) return;
+    game.answered = true;
+    const { f, opts } = game.current;
+    const ok = opts[idx].ok;
+
+    const buttons = [...$("options").children];
+    buttons.forEach((b, i) => {
+      b.disabled = true;
+      if (opts[i].ok) b.classList.add("correct");
+      else if (i === idx) b.classList.add("wrong");
+      else b.classList.add("dim");
+    });
+
+    const s = stats[f.nr] || { r: 0, f: 0, last: null };
+    if (ok) { s.r++; game.right++; } else { s.f++; game.wrong.push({ f, chosen: opts[idx].text }); }
+    s.last = ok;
+    stats[f.nr] = s;
+    saveStats(stats);
+
+    const fb = $("feedback");
+    fb.className = "feedback " + (ok ? "ok" : "bad");
+    fb.innerHTML = `<div class="verdict">${ok ? "Richtig!" : "Leider falsch."}</div><div class="model"></div><div class="exp"></div><div class="src"></div>`;
+    if (f.musterantwort) {
+      fb.querySelector(".model").innerHTML = "<b>Musterantwort:</b> ";
+      fb.querySelector(".model").append(f.musterantwort);
+    }
+    fb.querySelector(".exp").textContent = f.erklaerung;
+    fb.querySelector(".src").textContent = `📖 Skriptum ${f.seiten}`;
+
+    $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
+    $("nextBtn").disabled = false;
+    $("nextBtn").focus({ preventScroll: true });
+    $("keyHint").textContent = "Enter = weiter";
+  }
+
+  function next() {
+    if (!game || !game.answered) return;
+    game.i++;
+    if (game.i >= game.list.length) finish();
+    else renderQuestion();
+  }
+  $("nextBtn").onclick = next;
+
+  $("quitBtn").onclick = () => {
+    if (game && game.i > 0 && !confirm("Spiel beenden? Bisherige Antworten bleiben in der Statistik.")) return;
+    goStart();
+  };
+
+  function finish() {
+    $("bar").style.width = "100%";
+    const total = game.list.length;
+    const pct = Math.round((game.right / total) * 100);
+    $("resultScore").textContent = `${game.right} / ${total}`;
+    let msg = `${pct} % richtig. `;
+    if (pct === 100) msg += "Perfekt – alles gewusst! 🎉";
+    else if (pct >= 80) msg += "Sehr gut, fast alles sitzt.";
+    else if (pct >= 50) msg += "Solide – wiederhol die falschen Fragen.";
+    else msg += "Da geht noch was – die falschen Fragen gleich nochmal üben.";
+    $("resultText").textContent = msg;
+
+    const rev = $("review");
+    rev.innerHTML = "";
+    if (game.wrong.length) {
+      const h = document.createElement("h2");
+      h.textContent = "Falsch beantwortet";
+      h.style.marginTop = "8px";
+      rev.appendChild(h);
+      game.wrong.forEach(({ f, chosen }) => {
+        const d = document.createElement("div");
+        d.className = "review-item";
+        d.innerHTML = `<div class="q"></div><div class="a"></div><div class="y"></div><div class="small muted"></div>`;
+        d.querySelector(".q").textContent = `Nr. ${f.nr}: ${f.frage}`;
+        d.querySelector(".a").textContent = "✔ " + f.richtig;
+        d.querySelector(".y").textContent = "✘ Deine Antwort: " + chosen;
+        d.querySelector(".small").textContent = `📖 Skriptum ${f.seiten}`;
+        rev.appendChild(d);
+      });
+    }
+    $("retryWrongBtn").classList.toggle("hidden", game.wrong.length === 0);
+    show("result");
+  }
+
+  $("retryWrongBtn").onclick = () => startGame(shuffle(game.wrong.map((w) => w.f)));
+  $("newGameBtn").onclick = goStart;
+
+  function goStart() {
+    game = null;
+    renderStats();
+    updateStartInfo();
+    show("start");
+  }
+
+  function show(id) {
+    ["start", "quiz", "result"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+    window.scrollTo({ top: 0 });
+  }
+
+  // ---- Tastatur ----
+  document.addEventListener("keydown", (e) => {
+    if (!game || $("quiz").classList.contains("hidden")) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Enter/Leertaste auf einem fokussierten Button löst dessen Klick ohnehin aus
+    if (e.target.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
+    const k = e.key.toLowerCase();
+    const map = { "1": 0, "2": 1, "3": 2, "4": 3, a: 0, b: 1, c: 2, d: 3 };
+    if (!game.answered && k in map) { e.preventDefault(); answer(map[k]); }
+    else if (game.answered && (e.key === "Enter" || e.key === " " || e.key === "ArrowRight")) { e.preventDefault(); next(); }
+  });
+
+  renderStats();
+  updateStartInfo();
+})();
+</script>
+</body>
+</html>
