@@ -207,6 +207,34 @@
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--border); }
   .dots { letter-spacing: 2px; color: var(--ok); }
 
+  /* Tabs Quiz / Altklausuren */
+  .tabs { display: flex; gap: 6px; margin: -4px 0 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+  .tabs button { flex: 1; border: 0; background: none; padding: 9px 12px; border-radius: 9px; font-weight: 600; color: var(--muted); }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .tabs .cnt { font-weight: 400; opacity: .85; font-size: .85rem; }
+
+  /* Altklausuren */
+  .ak-group { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .ak-group > summary { cursor: pointer; padding: 12px 14px; font-weight: 600; list-style: none; display: flex; gap: 10px; align-items: center; }
+  .ak-group > summary::-webkit-details-marker { display: none; }
+  .ak-group > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  .ak-group[open] > summary::before { transform: rotate(90deg); }
+  .ak-group > summary .n { margin-left: auto; color: var(--muted); font-weight: 400; font-size: .85rem; }
+  .ak-body { padding: 0 14px 12px; display: grid; gap: 8px; }
+  .ak-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+  .ak-item .t { font-weight: 600; }
+  .ak-item .s { color: var(--muted); font-size: .85rem; }
+  .ak-item .sp { flex: 1; }
+  .ak-links { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .ak-links a, a.btn-link {
+    display: inline-block; font-size: .85rem; padding: 4px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--card); color: var(--accent); text-decoration: none;
+  }
+  .ak-links a:hover, a.btn-link:hover { border-color: var(--accent); }
+  .ak-item button { padding: 6px 12px; font-size: .9rem; }
+  .ak-sec { margin: 18px 0 10px; }
+  .ak-sec:first-child { margin-top: 0; }
+
   .hidden { display: none !important; }
   footer { margin-top: 20px; text-align: center; color: var(--muted); font-size: .8rem; }
 
@@ -228,8 +256,23 @@
     <div class="fach-menu hidden" id="fachMenu" role="menu"></div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button type="button" data-tab="start">📝 Quiz <span class="cnt" id="tabQuizCnt"></span></button>
+    <button type="button" data-tab="altk">📂 Altklausuren <span class="cnt" id="tabAltkCnt"></span></button>
+  </nav>
+
+  <!-- Altklausuren -->
+  <section id="altk" class="card hidden">
+    <div id="altkBody"></div>
+  </section>
+
   <!-- Startbildschirm -->
   <section id="start" class="card">
+    <div id="emptyQuiz" class="hidden">
+      <h2>Noch keine Quizfragen</h2>
+      <p class="muted">Für dieses Fach sind die Quizfragen noch in Arbeit. Die Originale der Altklausuren findest du schon im Tab <b>📂 Altklausuren</b>.</p>
+    </div>
+    <div id="startBody">
     <h2>Neues Spiel</h2>
     <p class="muted small" id="fachDesc"></p>
 
@@ -286,6 +329,7 @@
       <span class="spacer"></span>
       <button type="button" class="small" id="resetBtn">Statistik zurücksetzen</button>
     </div>
+    </div>
   </section>
 
   <!-- Quiz -->
@@ -329,6 +373,10 @@
 
 <script src="fragen-chemie.js"></script>
 <script src="fragen-mom.js"></script>
+<script src="fragen-mathe.js"></script>
+<script src="fragen-mechanik.js"></script>
+<script src="fragen-werkstoffe.js"></script>
+<script src="altklausuren.js"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -381,7 +429,84 @@
     $("fachDesc").textContent = fach.beschreibung;
     $("footer").textContent = `Antworten basierend auf dem ${fach.quelleText} · Fortschritt wird nur lokal in diesem Browser gespeichert.`;
     buildTopics();
+    tab = fach.fragen.length ? "start" : "altk";
     goStart();
+  }
+
+  // ---- Tabs Quiz / Altklausuren ----
+  let tab = "start";
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.onclick = () => { tab = b.dataset.tab; goStart(); };
+  });
+  const akGroups = () => (window.ALTKLAUSUREN || {})[fach.id] || [];
+  // abgetippte Klausurfragen = Fragen mit einer Quelle, die nicht das Skriptum ist
+  const klausurQuelle = (f) => (f.quelle && !/^Skriptum/.test(f.quelle) ? f.quelle.replace(/\s*\(.*\)\s*$/, "") : null);
+  function updateTabs() {
+    const nAk = akGroups().reduce((s, g) => s + g.klausuren.length, 0) + new Set(fach.fragen.map(klausurQuelle).filter(Boolean)).size;
+    $("tabQuizCnt").textContent = fach.fragen.length ? `(${fach.fragen.length})` : "";
+    $("tabAltkCnt").textContent = nAk ? `(${nAk})` : "";
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+    $("emptyQuiz").classList.toggle("hidden", fach.fragen.length > 0);
+    $("startBody").classList.toggle("hidden", fach.fragen.length === 0);
+  }
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const link = (href, text) => { const a = el("a", null, text); a.href = href; a.target = "_blank"; a.rel = "noopener"; return a; };
+
+  function renderAltk() {
+    const body = $("altkBody");
+    body.innerHTML = "";
+
+    // 1. Abgetippte Klausurfragen (spielbar)
+    const byQuelle = new Map();
+    fach.fragen.forEach((f) => { const q = klausurQuelle(f); if (q) { if (!byQuelle.has(q)) byQuelle.set(q, []); byQuelle.get(q).push(f); } });
+    body.appendChild(el("h2", "ak-sec", "📝 Abgetippt – als Quiz üben"));
+    if (byQuelle.size) {
+      const all = [...byQuelle.values()].flat();
+      const row = el("div", "ak-item");
+      row.append(el("span", "t", "Alle Klausurfragen"), el("span", "s", `${all.length} Fragen`), el("span", "sp"));
+      const b = el("button", "btn-primary", "Üben"); b.onclick = () => startGame(shuffle(all)); row.appendChild(b);
+      body.appendChild(row);
+      const list = el("div", "ak-body"); list.style.padding = "8px 0 0";
+      [...byQuelle.entries()].sort((a, b) => b[1].length - a[1].length).forEach(([q, fs]) => {
+        const r = el("div", "ak-item");
+        const safe = fs.filter((f) => isSafe(f.nr)).length;
+        r.append(el("span", "t", q), el("span", "s", `${fs.length} Fragen · ${safe} sicher`), el("span", "sp"));
+        const bb = el("button", null, "Üben"); bb.onclick = () => startGame(shuffle(fs)); r.appendChild(bb);
+        list.appendChild(r);
+      });
+      body.appendChild(list);
+    } else {
+      body.appendChild(el("p", "muted small", "Für dieses Fach sind noch keine Klausurfragen abgetippt."));
+    }
+
+    // 2. Originale im Google Drive (nur verlinkt, nicht kopiert)
+    const groups = akGroups();
+    body.appendChild(el("h2", "ak-sec", "📂 Originale im Google Drive"));
+    if (!groups.length) {
+      body.appendChild(el("p", "muted small", "Für dieses Fach liegen im Drive-Ordner keine Altklausuren."));
+      return;
+    }
+    body.appendChild(el("p", "muted small", "Fotos und PDFs aus einem öffentlichen Studierenden-Ordner (MKT Bachelor, FH Wels). Ältere Jahrgänge – handschriftliche Lösungen darin sind nicht geprüft. Die Dateien öffnen sich in Google Drive."));
+    groups.forEach((g, gi) => {
+      const d = el("details", "ak-group");
+      if (gi === 0) d.open = true;
+      const sum = el("summary", null, g.lv);
+      sum.appendChild(el("span", "n", `${g.klausuren.length} ${g.klausuren.length === 1 ? "Eintrag" : "Einträge"}`));
+      d.appendChild(sum);
+      const inner = el("div", "ak-body");
+      g.klausuren.forEach((k) => {
+        const r = el("div", "ak-item");
+        r.append(el("span", "t", k.titel), el("span", "s", `${k.dateien.length} ${k.dateien.length === 1 ? "Datei" : "Dateien"}${k.info ? " · " + k.info : ""}`));
+        const links = el("div", "ak-links");
+        if (k.ordner) links.appendChild(link(`https://drive.google.com/drive/folders/${k.ordner}`, "📁 Ordner öffnen"));
+        k.dateien.forEach((f, i) => links.appendChild(link(`https://drive.google.com/file/d/${f.id}/view`, f.label || (k.dateien.length > 1 && /\.(jpe?g|png)$/i.test(f.n) ? `Seite ${i + 1}` : f.n))));
+        r.appendChild(links);
+        inner.appendChild(r);
+      });
+      d.appendChild(inner);
+      body.appendChild(d);
+    });
   }
 
   // ---- Fächer-Menü in der Überschrift ----
@@ -719,11 +844,14 @@
     game = null;
     renderStats();
     updateStartInfo();
-    show("start");
+    updateTabs();
+    if (tab === "altk") renderAltk();
+    show(tab);
   }
 
   function show(id) {
-    ["start", "quiz", "result"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+    ["start", "quiz", "result", "altk"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+    $("tabs").classList.toggle("hidden", id !== "start" && id !== "altk");
     window.scrollTo({ top: 0 });
   }
 
