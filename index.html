@@ -175,6 +175,16 @@
   .feedback .exp { color: var(--muted); font-size: .92rem; }
   .feedback .src { margin-top: 6px; font-size: .85rem; color: var(--muted); }
   .feedback .pool-msg { margin-top: 8px; font-weight: 600; }
+  .feedback.reveal { border-left: 4px solid var(--accent); }
+  .feedback.reveal .verdict { color: var(--accent); }
+  .feedback .answers { margin: 0 0 8px; padding-left: 20px; }
+  .free {
+    display: block; width: 100%; min-height: 120px; margin-top: 8px; resize: vertical;
+    font: inherit; line-height: 1.45; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+  }
+  .free:focus { outline: none; border-color: var(--accent); }
+  .free[readonly] { opacity: .8; }
   .actions { margin-top: 16px; }
   .hint { font-size: .8rem; color: var(--muted); }
 
@@ -321,6 +331,13 @@
           <option value="catalog">Nach Nummer</option>
         </select>
       </div>
+      <div>
+        <label class="lbl" for="answerMode">Antworten</label>
+        <select id="answerMode">
+          <option value="mc">Auswahl (mit Bewertung)</option>
+          <option value="frei">Freitext (ohne Bewertung)</option>
+        </select>
+      </div>
     </div>
 
     <div class="row">
@@ -346,6 +363,7 @@
     <div class="question" id="question"></div>
     <div class="multi-hint hidden" id="multiHint">Mehrere Antworten möglich – mindestens eine ist richtig. Kreuze alle richtigen an und tippe dann auf „Antwort prüfen“.</div>
     <div class="options" id="options"></div>
+    <textarea class="free hidden" id="freeText" placeholder="Deine Antwort … (wird nicht bewertet)" aria-label="Deine Antwort"></textarea>
     <div id="feedback" class="feedback hidden"></div>
     <div class="row actions">
       <button type="button" id="quitBtn">Beenden</button>
@@ -634,7 +652,8 @@
   let game = null;
 
   function startGame(list) {
-    game = { list, i: 0, right: 0, wrong: [], newSafe: 0, lostSafe: 0, answered: false, current: null };
+    game = { list, i: 0, right: 0, wrong: [], newSafe: 0, lostSafe: 0, answered: false, current: null,
+             frei: $("answerMode").value === "frei" };
     show("quiz");
     renderQuestion();
   }
@@ -662,13 +681,25 @@
     $("srcTag").classList.toggle("hidden", !f.quelle);
     $("srcTag").textContent = f.quelle ? (f.quelle.startsWith("Skriptum") ? "📖 " : "📝 ") + f.quelle : "";
     $("nrTag").textContent = `${fach.nrLabel} ${f.nr}`;
-    $("liveScore").textContent = `✔ ${game.right}  ✘ ${game.wrong.length}`;
+    $("liveScore").textContent = game.frei ? "✍️ Freitext" : `✔ ${game.right}  ✘ ${game.wrong.length}`;
     $("dots").textContent = dots(streakOf(f.nr));
     $("question").textContent = f.frage;
-    $("multiHint").classList.toggle("hidden", !isMulti());
+    $("multiHint").classList.toggle("hidden", !isMulti() || game.frei);
 
     const box = $("options");
     box.innerHTML = "";
+    const ta = $("freeText");
+    ta.classList.toggle("hidden", !game.frei);
+    box.classList.toggle("hidden", game.frei);
+    if (game.frei) {
+      ta.value = "";
+      ta.readOnly = false;
+      $("feedback").className = "feedback hidden";
+      updateNextBtn();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ta.focus({ preventScroll: true });
+      return;
+    }
     opts.forEach((o, idx) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -693,6 +724,10 @@
       btn.disabled = false;
       btn.textContent = last ? "Auswerten" : "Weiter";
       $("keyHint").textContent = "Enter = weiter";
+    } else if (game.frei) {
+      btn.disabled = false;
+      btn.textContent = "Antwort zeigen";
+      $("keyHint").textContent = "Strg+Enter = Antwort zeigen";
     } else if (isMulti()) {
       btn.disabled = game.current.sel.size === 0;
       btn.textContent = "Antwort prüfen";
@@ -773,10 +808,44 @@
     $("nextBtn").focus({ preventScroll: true });
   }
 
+  // Freitext: keine Bewertung, keine Statistik – nur die richtige Antwort zeigen
+  function reveal() {
+    game.answered = true;
+    const f = game.current.f;
+    $("freeText").readOnly = true;
+    const fb = $("feedback");
+    fb.className = "feedback reveal";
+    fb.innerHTML = `<div class="verdict"></div><div class="model"></div><div class="exp"></div><div class="src"></div>`;
+    const right = correctTexts(f);
+    const model = fb.querySelector(".model");
+    if (right.length === 1) {
+      fb.querySelector(".verdict").textContent = "Richtige Antwort:";
+      model.textContent = right[0];
+    } else {
+      fb.querySelector(".verdict").textContent = "Richtig sind:";
+      const ul = document.createElement("ul");
+      ul.className = "answers";
+      right.forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+      model.appendChild(ul);
+    }
+    if (f.musterantwort) {
+      const m = document.createElement("div");
+      m.style.marginTop = "8px";
+      m.innerHTML = "<b>Musterantwort:</b> ";
+      m.append(f.musterantwort);
+      model.appendChild(m);
+    }
+    fb.querySelector(".exp").textContent = f.erklaerung || "";
+    fb.querySelector(".src").textContent = `📖 ${fach.id === "chemie" ? "Skriptum " : ""}${f.seiten}`;
+    updateNextBtn();
+    $("nextBtn").focus({ preventScroll: true });
+  }
+
   function next() {
     if (!game) return;
     if (!game.answered) {
-      if (isMulti() && game.current.sel.size) evaluate(game.current.sel);
+      if (game.frei) reveal();
+      else if (isMulti() && game.current.sel.size) evaluate(game.current.sel);
       return;
     }
     game.i++;
@@ -793,6 +862,15 @@
   function finish() {
     $("bar").style.width = "100%";
     const total = game.list.length;
+    if (game.frei) {
+      $("resultScore").textContent = `${total} ${total === 1 ? "Frage" : "Fragen"} geübt`;
+      $("resultText").textContent = "Freitext-Modus – ohne Bewertung, die Statistik bleibt unverändert.";
+      $("resultWeakBtn").classList.add("hidden");
+      $("review").innerHTML = "";
+      $("retryWrongBtn").classList.add("hidden");
+      show("result");
+      return;
+    }
     const pct = Math.round((game.right / total) * 100);
     $("resultScore").textContent = `${game.right} / ${total}`;
     let msg = `${pct} % richtig. `;
@@ -858,6 +936,11 @@
   // ---- Tastatur ----
   document.addEventListener("keydown", (e) => {
     if (!game || $("quiz").classList.contains("hidden")) return;
+    // Im Freitextfeld normal tippen; Strg/Cmd+Enter zeigt die Antwort
+    if (e.target.tagName === "TEXTAREA") {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); next(); }
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Enter/Leertaste auf einem fokussierten Button löst dessen Klick ohnehin aus
     // (außer bei Antwort-Buttons: dort heißt Enter „prüfen/weiter“, Leertaste „ankreuzen“)
