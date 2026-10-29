@@ -185,6 +185,9 @@
   }
   .free:focus { outline: none; border-color: var(--accent); }
   .free[readonly] { opacity: .8; }
+  #copyText { margin-top: 12px; min-height: 90px; }
+  #copyText.done { border-color: var(--ok); background: var(--ok-soft); }
+  #copyStatus { margin-top: 4px; min-height: 1.2em; }
   .actions { margin-top: 16px; }
   .hint { font-size: .8rem; color: var(--muted); }
 
@@ -365,6 +368,10 @@
     <div class="options" id="options"></div>
     <textarea class="free hidden" id="freeText" placeholder="Deine Antwort … (wird nicht bewertet)" aria-label="Deine Antwort"></textarea>
     <div id="feedback" class="feedback hidden"></div>
+    <div id="copyBox" class="hidden">
+      <textarea class="free" id="copyText" placeholder="Richtige Antwort abschreiben … (optional, zum Einprägen)" aria-label="Richtige Antwort abschreiben"></textarea>
+      <div class="small muted" id="copyStatus"></div>
+    </div>
     <div class="row actions">
       <button type="button" id="quitBtn">Beenden</button>
       <span class="spacer"></span>
@@ -691,6 +698,7 @@
     const ta = $("freeText");
     ta.classList.toggle("hidden", !game.frei);
     box.classList.toggle("hidden", game.frei);
+    $("copyBox").classList.add("hidden");
     if (game.frei) {
       ta.value = "";
       ta.readOnly = false;
@@ -723,7 +731,7 @@
     if (game.answered) {
       btn.disabled = false;
       btn.textContent = last ? "Auswerten" : "Weiter";
-      $("keyHint").textContent = "Enter = weiter";
+      $("keyHint").textContent = game.frei ? "Strg+Enter = weiter" : "Enter = weiter";
     } else if (game.frei) {
       btn.disabled = false;
       btn.textContent = "Antwort zeigen";
@@ -837,8 +845,24 @@
     }
     fb.querySelector(".exp").textContent = f.erklaerung || "";
     fb.querySelector(".src").textContent = `📖 ${fach.id === "chemie" ? "Skriptum " : ""}${f.seiten}`;
+
+    // Abschreiben: gilt als fertig, wenn der Text einer der richtigen Antworten
+    // oder der Musterantwort entspricht (Groß-/Kleinschreibung, Leerzeichen, Satzzeichen egal;
+    // NFKC macht aus ₄/² normale Ziffern, damit „ZnSO4“ für „ZnSO₄“ zählt)
+    const norm = (s) => s.normalize("NFKC").toLowerCase().replace(/[\s.,;:!?„“"'()\-–−→>]+/g, "");
+    const targets = [...right, right.join(""), f.musterantwort || ""].filter(Boolean).map(norm);
+    const ct = $("copyText");
+    ct.value = "";
+    ct.classList.remove("done");
+    $("copyStatus").textContent = "";
+    ct.oninput = () => {
+      const done = targets.includes(norm(ct.value));
+      ct.classList.toggle("done", done);
+      $("copyStatus").textContent = done ? "✔ Vollständig abgeschrieben" : "";
+    };
+    $("copyBox").classList.remove("hidden");
     updateNextBtn();
-    $("nextBtn").focus({ preventScroll: true });
+    ct.focus({ preventScroll: true });
   }
 
   function next() {
